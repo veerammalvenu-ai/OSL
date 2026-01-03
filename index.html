@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>For Thulir Nila</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --bg:#05070c;
+  --text:#ffffff;
+  --muted:#8f96a3;
+  --accent:#d8b4c2;
+}
+
+*{box-sizing:border-box;}
+
+body{
+  margin:0;
+  font-family:Inter,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  overflow:hidden;
+}
+
+/* CINEMATIC BACKGROUND */
+.bg{
+  position:fixed;
+  inset:0;
+  background:radial-gradient(120% 120% at 50% 40%, #101426, #03040a);
+  animation: slowZoom 60s ease-in-out infinite alternate;
+  z-index:-3;
+}
+
+.vignette{
+  position:fixed;
+  inset:0;
+  box-shadow:inset 0 0 220px rgba(0,0,0,.85);
+  pointer-events:none;
+  z-index:3;
+}
+
+.grain{
+  position:fixed;
+  inset:-50%;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+  animation: grain 8s steps(10) infinite;
+  pointer-events:none;
+  z-index:2;
+}
+
+@keyframes slowZoom{
+  from{transform:scale(1);}
+  to{transform:scale(1.07);}
+}
+@keyframes grain{
+  to{transform:translate(-5%,-5%);}
+}
+
+/* PAGES */
+.page{
+  display:none;
+  height:100vh;
+  padding:64px 24px;
+  text-align:center;
+  animation: fadeIn 1.2s ease;
+}
+.page.active{
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+}
+
+h1,h2{
+  font-family:"Playfair Display",serif;
+  margin-bottom:18px;
+}
+
+p{
+  max-width:480px;
+  margin:0 auto 20px;
+  color:var(--muted);
+  line-height:1.8;
+  font-size:15.5px;
+}
+
+input,button{
+  padding:14px 28px;
+  border-radius:40px;
+  border:none;
+  font-size:14.5px;
+}
+
+input{
+  width:260px;
+  text-align:center;
+}
+
+button{
+  background:var(--accent);
+  color:#000;
+  font-weight:500;
+  margin:8px;
+}
+
+button.secondary{
+  background:transparent;
+  border:1px solid var(--accent);
+  color:var(--accent);
+}
+
+@keyframes fadeIn{
+  from{opacity:0;transform:translateY(20px);}
+  to{opacity:1;transform:none;}
+}
+
+/* FIREWORK CANVAS */
+canvas{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:1;
+}
+
+/* FADE TO BLACK */
+.fade-black{
+  position:fixed;
+  inset:0;
+  background:#000;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity 3s ease;
+  z-index:10;
+}
+.fade-black.active{opacity:1;}
+</style>
+</head>
+
+<body>
+
+<div class="bg"></div>
+<div class="grain"></div>
+<div class="vignette"></div>
+<canvas id="fw"></canvas>
+<div id="fadeBlack" class="fade-black"></div>
+
+<!-- VERY SOFT DISTANT FIREWORK SOUND -->
+<audio id="fireSound" loop>
+  <source src="https://cdn.pixabay.com/audio/2022/11/17/audio_7b6c4b8a9c.mp3" type="audio/mpeg">
+</audio>
+
+<!-- LOGIN -->
+<div class="page active" id="p1">
+  <h1>Private Access</h1>
+  <p>This page exists for one person only.</p>
+  <input id="login" placeholder="Enter name">
+  <br>
+  <button onclick="login()">Continue</button>
+  <p id="err" style="color:#ff8a8a"></p>
+</div>
+
+<div class="page" id="p2">
+  <h2>Thulir Nila</h2>
+  <p>Some people don’t arrive loudly. They stay quietly.</p>
+  <button onclick="go(3)">Next</button>
+</div>
+
+<div class="page" id="p3">
+  <h2>Stillness</h2>
+  <p>Comfort is not excitement. It is peace.</p>
+  <button onclick="go(4)">Next</button>
+</div>
+
+<div class="page" id="p4">
+  <h2>The Moon</h2>
+  <p>There are many stars, yet somehow I noticed the moon.</p>
+  <button onclick="go(5)">Next</button>
+</div>
+
+<div class="page" id="p5">
+  <h2>One Question</h2>
+  <p>Would you like to move forward, thoughtfully — together?</p>
+  <button onclick="yes()">Yes</button>
+  <button class="secondary" onclick="no()">No</button>
+</div>
+
+<div class="page" id="p6">
+  <h1>Thank You</h1>
+  <p>I will treat this choice with care and respect.</p>
+</div>
+
+<div class="page" id="p7">
+  <h2>With Respect</h2>
+  <p>Thank you for your honesty.</p>
+</div>
+
+<script>
+/* FIREWORK ENGINE */
+const canvas = document.getElementById("fw");
+const ctx = canvas.getContext("2d");
+let W,H,particles=[];
+
+function resize(){
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+window.onresize = resize;
+resize();
+
+function firework(x,y){
+  for(let i=0;i<80;i++){
+    const a=Math.random()*Math.PI*2;
+    const s=Math.random()*6+3;
+    particles.push({
+      x,y,
+      vx:Math.cos(a)*s,
+      vy:Math.sin(a)*s,
+      life:100,
+      color:`hsl(${Math.random()*360},80%,70%)`
+    });
+  }
+}
+
+function update(){
+  ctx.clearRect(0,0,W,H);
+  particles.forEach(p=>{
+    p.vy+=0.08;
+    p.x+=p.vx;
+    p.y+=p.vy;
+    p.life--;
+    ctx.globalAlpha=p.life/100;
+    ctx.fillStyle=p.color;
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,2,0,Math.PI*2);
+    ctx.fill();
+  });
+  particles=particles.filter(p=>p.life>0);
+  ctx.globalAlpha=1;
+  requestAnimationFrame(update);
+}
+update();
+
+function cinematicFireworks(){
+  setInterval(()=>{
+    firework(Math.random()*W,Math.random()*H*0.5);
+  },500); // 0.5 seconds
+}
+
+/* AUDIO */
+function playFireSound(){
+  const a=document.getElementById("fireSound");
+  a.volume=0.08; // VERY soft
+  a.play();
+}
+
+/* FADE */
+function fadeToBlack(){
+  setTimeout(()=>{
+    document.getElementById("fadeBlack").classList.add("active");
+  },10000);
+}
+
+/* NAVIGATION */
+function go(n){
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  document.getElementById("p"+n).classList.add("active");
+}
+
+function login(){
+  const v=document.getElementById("login").value.toLowerCase().trim();
+  if(v==="thulir nila") go(2);
+  else document.getElementById("err").innerText="Access restricted.";
+}
+
+function yes(){
+  go(6);
+  cinematicFireworks();
+  playFireSound();
+  fadeToBlack();
+}
+
+function no(){ go(7); }
+</script>
+
+</body>
+</html>
